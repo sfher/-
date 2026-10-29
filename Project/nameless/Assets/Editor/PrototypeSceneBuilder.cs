@@ -50,9 +50,9 @@ public static class PrototypeSceneBuilder
         var p1 = CreatePlayer("Player1", new Vector2(-2f, -2f), new Color(0.36f, 0.62f, 1f),
                               PlayerMotor.Scheme.WASD, white, slick);
         var p2 = CreatePlayer("Player2", new Vector2(2f, -2f), new Color(1f, 0.45f, 0.4f),
-                              PlayerMotor.Scheme.Arrows, white, slick);
+                              PlayerMotor.Scheme.IJKL, white, slick);
 
-        int groundMask = 1 << GroundLayerIndex;
+        int groundMask = (1 << GroundLayerIndex) | (1 << PlayerLayerIndex);
         foreach (var player in new[] { p1, p2 })
         {
             var so = new SerializedObject(player.GetComponent<PlayerMotor>());
@@ -69,7 +69,7 @@ public static class PrototypeSceneBuilder
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         AssetDatabase.Refresh();
 
-        Debug.Log($"[Prototype] 场景已生成：{ScenePath}。按 Play 开始；P1 = A/D + Space，P2 = ←/→ + 右Shift。");
+        Debug.Log($"[Prototype] 场景已生成：{ScenePath}。按 Play 开始；P1 = A/D + Space，P2 = J/L + Enter。");
     }
 
     static GameObject CreatePlayer(string name, Vector2 position, Color color, PlayerMotor.Scheme scheme,

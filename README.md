@@ -24,9 +24,9 @@ Game Jam 原型仓库（主题：碰撞 / 质感）。当前阶段：玩法验�
 | 玩家 | 移动 | 跳跃 |
 | --- | --- | --- |
 | P1 | A / D | 空格 |
-| P2 | ← / → | 右 Shift |
+| P2 | J / L | Enter |
 
-两人共用一个键盘。之后接手柄时再换成 Input System 的 control scheme。
+两人共用一个键盘。I / K（P2）和 W / S（P1）暂未使用，留给蹲下或上方向操作。之后接手柄时再换成 Input System 的 control scheme。
 
 ## 结构
 
@@ -48,6 +48,8 @@ Game Jam 原型仓库（主题：碰撞 / 质感）。当前阶段：玩法验�
 - 速度驱动的动态刚体（`Rigidbody2D`），水平用 `Mathf.MoveTowards` 逼近目标速度，不是直接赋值，这样物理推挤才有机会生效
 - 跳跃：coyote time、跳跃缓冲、可变跳跃高度、上升/下落不同重力
 - 双人碰撞：被撞一方在 0.12s 内交出水平控制权，由物理完成推挤
+- 地面检测同时认 `Ground` 和 `Player` 两层，所以可以踩在队友头上起跳
+- `MotionState` 状态机：`Idle` / `Move` / `Jump` / `Fall`，通过 `StateChanged` 事件外抛，供动画和音效挂接。加冲刺就是加一个枚举值和一个分支
 
 还没做：碰撞冲量调参、顿帧与震屏、Tilemap 关卡、手柄、Cinemachine 相机。
 
