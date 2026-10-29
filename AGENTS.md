@@ -43,3 +43,17 @@ Review 其他智能代理提交的 PR 时，按以下优先级检查：
 - 先说明结论，再说明原因和必要的改进建议。
 - 对不确定的内容明确标注，不做无依据假设。
 - 所有 PR、提交和分支都应遵循本文件约定。
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `sfher/-`, driven by the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles, each label string identical to its role name. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
