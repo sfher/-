@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &2034877014
+--- !u!1 &1755561498
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2034877016}
-  - component: {fileID: 2034877015}
+  - component: {fileID: 1755561500}
+  - component: {fileID: 1755561499}
   m_Layer: 0
   m_Name: TuningLab
   m_TagString: Untagged
@@ -136,49 +136,64 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2034877015
+--- !u!114 &1755561499
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2034877014}
+  m_GameObject: {fileID: 1755561498}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94a56449bed4e0343a7e8ea109dbc0f9, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TuningLab
-  timeScale: 0.5
-  gravity: 100
+  m_EditorClassIdentifier: GameJam.Lab::TuningLab
+  timeScale: 1
+  roomScale: 1
+  freeCamera: 1
+  gravity: 50
   jumpCells: 2.2
-  holdToJump: 1
+  holdToJump: 0
   coyoteTime: 0.08
   jumpBufferTime: 0.08
   walkSpeed: 8
   walkAccel: 140
-  groundBrake: 50
+  groundBrake: 30
   airBrake: 0
   horizontalAirDrag: 1
   dashDistanceCells: 4
   dashOverV0Cells: 0.05
-  dashLockTime: 0.12
-  dashCooldown: 0.5
+  dashLockTime: 0
+  dashCooldown: 0.8
   groundOnlyDash: 0
   redHotTierIndex: 1
-  redHotDuration: 2
+  redHotDuration: 1.5
+  forgeTierIndex: 0
   verticalHitEnabled: 1
   tierFirstCells: 4
   tierSpacingCells: 4
   tierCount: 4
-  maxFallSpeed: 1000
+  maxFallSpeed: 42
   showPixelGrid: 0
---- !u!4 &2034877016
+  showGrid: 1
+  autoBuild: 1
+  level: {fileID: 0}
+  defaultCameraMinSize: 6.75
+  defaultCameraMaxSize: 27
+  defaultCameraBounds:
+    serializedVersion: 2
+    x: -13
+    y: -1
+    width: 26
+    height: 17
+  cameraFrameBlend: 8
+--- !u!4 &1755561500
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2034877014}
+  m_GameObject: {fileID: 1755561498}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -191,4 +206,4 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 2034877016}
+  - {fileID: 1755561500}
