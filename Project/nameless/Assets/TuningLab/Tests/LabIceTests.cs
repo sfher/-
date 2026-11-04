@@ -273,6 +273,31 @@ public sealed class LabIceTests
     }
 
     [UnityTest]
+    public IEnumerator SlidingAcrossDifferentIceGroupsKeepsSpeed()
+    {
+        MakeFloor();
+        for (int x = 0; x < 30; x++)
+            MakeIce(new Vector2Int(x, 0), x == 15 ? 5 : 1);   // 中间插一块别组
+
+        var a = MakePlayer("A_Box", TuningLab.A_Pixels, true);
+        a.Teleport(new Vector2(0.5f, 1f + a.HalfHeight));
+        yield return WaitUntil(() => a.Grounded, 2f);
+
+        const float startSpeed = 24f;
+        a.SetVelocity(new Vector2(startSpeed, 0f));
+        float minSpeed = startSpeed;
+        for (int i = 0; i < 30; i++)
+        {
+            yield return new WaitForFixedUpdate();
+            minSpeed = Mathf.Min(minSpeed, a.Velocity.x);
+        }
+
+        Assert.Greater(minSpeed, startSpeed - 1f,
+            "经过不同分组冰块交界时不应突然掉速，最低 " + minSpeed);
+        Assert.IsTrue(a.OnIce, "滑过交界后仍应判定在冰面上");
+    }
+
+    [UnityTest]
     public IEnumerator HotEdgeStandingOnIceDoesNotMeltTheSupportBlock()
     {
         MakeFloor();

@@ -478,18 +478,20 @@ public class LabPlayer : MonoBehaviour
         //   非承重的红热边（Hot1/Hot2）→ 只融这一块，边强制回普通；
         //   普通边接触 / 红热边踩在冰面上 → 什么都不发生。
         // 只算法线分量：站在冰面上横向滑行时法线是竖直的，水平速度再快也不算撞击。
-        // 承重接触（法线朝上且当前在地面）不能触发红热融冰，否则玩家会把自己脚下的冰块融掉再摔停。
+        // 冰格落在玩家脚下 footprint 内时一律不结算：交界处侧向接触也可能碰到承重块，
+        // 融掉它会让玩家落下去并被地面制动停住。
         var ice = c.collider != null ? c.collider.GetComponentInParent<LabIce>() : null;
         if (ice != null)
         {
+            if (grounded && IsIceUnderPlayer(ice)) return;
+
             if (lab.TierOfSpeed(impact) >= lab.IceBreakTier)
             {
                 ice.BreakGroup();
                 return;
             }
 
-            bool supportContact = grounded && n.y > 0.5f;
-            if (canBeRedHot && !supportContact)
+            if (canBeRedHot)
             {
                 Edge edge = EdgeFor(-n);
                 var state = GetEdge(edge);
@@ -506,6 +508,23 @@ public class LabPlayer : MonoBehaviour
 
         if (impact < lab.ForgeSpeed) return;
         StrikeEdge(EdgeFor(-n), impact >= lab.RedHotSpeed);
+    }
+
+    /// <summary>
+    /// 这块冰是否正踩在玩家脚下：水平方向与玩家 footprint 重叠，且冰面高度在脚底附近。
+    /// 用来拦掉交界处的侧向接触，避免把玩家脚下的承重块融掉。
+    /// </summary>
+    bool IsIceUnderPlayer(LabIce ice)
+    {
+        if (col == null || ice == null) return false;
+        var iceBody = ice.GetComponent<BoxCollider2D>();
+        if (iceBody == null) return false;
+
+        Bounds player = col.bounds;
+        Bounds cell = iceBody.bounds;
+        bool horizontal = player.max.x > cell.min.x + 0.01f && player.min.x < cell.max.x - 0.01f;
+        bool atFeet = cell.max.y >= player.min.y - 0.12f && cell.max.y <= player.min.y + 0.12f;
+        return horizontal && atFeet;
     }
 
     void TryResolveHit(Collision2D c)
