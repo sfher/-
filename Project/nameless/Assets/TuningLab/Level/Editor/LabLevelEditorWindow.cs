@@ -28,7 +28,8 @@ public sealed class LabLevelEditorWindow : EditorWindow
         Key = 8,
         Door = 9,
         Spike = 10,
-        Ice = 11
+        Ice = 11,
+        RespawnPoint = 12
     }
 
     const int EditMargin = 8;                 // 相机范围外还能画多少格
@@ -37,7 +38,7 @@ public sealed class LabLevelEditorWindow : EditorWindow
 
     static readonly string[] ToolLabels =
     {
-        "铺地形", "擦地形", "矩形", "竖绳", "横绳", "出生点 A", "出生点 B", "关卡分区", "钥匙", "门", "地刺", "冰块"
+        "铺地形", "擦地形", "矩形", "竖绳", "横绳", "出生点 A", "出生点 B", "关卡分区", "钥匙", "门", "地刺", "冰块", "重生点"
     };
 
     static readonly string[] SpikeDirLabels = { "朝上", "朝下", "朝左", "朝右" };
@@ -64,6 +65,7 @@ public sealed class LabLevelEditorWindow : EditorWindow
     Vector2 keyDoorScroll;
     Vector2 spikeScroll;
     Vector2 iceScroll;
+    Vector2 respawnScroll;
 
     bool gesture;
     Vector2Int rectStart;
@@ -211,6 +213,8 @@ public sealed class LabLevelEditorWindow : EditorWindow
         DrawSpikes();
         EditorGUILayout.Space();
         DrawIces();
+        EditorGUILayout.Space();
+        DrawRespawnPoints();
         EditorGUILayout.Space();
         DrawSpawns();
         EditorGUILayout.Space();
@@ -380,6 +384,13 @@ public sealed class LabLevelEditorWindow : EditorWindow
                         iceGroupId = level.Data.NextIceGroupId();
                 }
                 break;
+            case Tool.RespawnPoint:
+                EditorGUILayout.HelpBox(
+                    "左键放置 3×3 重生点；同一格再次点击删除。重生点由 LabLevel 数据生成，" +
+                    "不直接编辑场景生成物。",
+                    MessageType.None);
+                break;
+
         }
 
         if (GUILayout.Button("跳到关卡")) FrameLevel();
@@ -804,6 +815,45 @@ public sealed class LabLevelEditorWindow : EditorWindow
                 Record("B 回基准出生点");
                 data.spawnB = TuningLab.SpawnBFeet;
                 MarkDirty();
+            }
+        }
+    }
+
+    void DrawRespawnPoints()
+    {
+        EditorGUILayout.LabelField("重生点", EditorStyles.boldLabel);
+        var data = level.Data;
+        EditorGUILayout.LabelField("重生点", level.RespawnPointCount + "（3×3，单人接触触发）");
+        if (data.respawnPoints == null) data.respawnPoints = new List<LabRespawnPointSpec>();
+
+        respawnScroll = EditorGUILayout.BeginScrollView(respawnScroll, GUILayout.MaxHeight(100f));
+        for (int i = 0; i < data.respawnPoints.Count; i++)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var point = data.respawnPoints[i];
+                EditorGUILayout.LabelField(
+                    string.Format("重生点 ({0:0.##}, {1:0.##})", point.position.x, point.position.y),
+                    EditorStyles.miniLabel);
+                if (GUILayout.Button("×", GUILayout.Width(24f)))
+                {
+                    Record("删重生点");
+                    data.respawnPoints.RemoveAt(i);
+                    AfterStructuralEdit();
+                    break;
+                }
+            }
+        }
+        EditorGUILayout.EndScrollView();
+
+        using (new EditorGUI.DisabledScope(level.RespawnPointCount == 0))
+        {
+            if (GUILayout.Button("清空重生点"))
+            {
+                if (!EditorUtility.DisplayDialog("清空重生点", "删掉所有重生点？", "清空", "取消")) return;
+                Record("清空重生点");
+                data.respawnPoints.Clear();
+                AfterStructuralEdit();
             }
         }
     }
@@ -1300,6 +1350,7 @@ public sealed class LabLevelEditorWindow : EditorWindow
         DrawKeyDoorHandles(data);
         DrawSpikeHandles(data);
         DrawIceHandles(data);
+        DrawRespawnPointHandles(data);
         if (showSpawns) DrawSpawnHandles(data);
         if (showCameraFrames) DrawCameraFrames(data);
 
@@ -1486,6 +1537,25 @@ public sealed class LabLevelEditorWindow : EditorWindow
                 {
                     Record(existingIce.HasValue ? "改冰块组号" : "放冰块");
                     level.Data.PlaceIce(cell, iceGroupId);
+                }
+                AfterStructuralEdit();
+                break;
+
+            case Tool.RespawnPoint:
+                if (!inBounds)
+                {
+                    Notify(view, "重生点必须在相机范围里。");
+                    return;
+                }
+                if (level.Data.HasRespawnPoint(cell))
+                {
+                    Record("删重生点");
+                    level.Data.RemoveRespawnPoint(cell);
+                }
+                else
+                {
+                    Record("放重生点");
+                    level.Data.PlaceRespawnPoint(cell);
                 }
                 AfterStructuralEdit();
                 break;
@@ -1728,6 +1798,7 @@ public sealed class LabLevelEditorWindow : EditorWindow
             case KeyCode.Alpha0: tool = Tool.Door; break;
             case KeyCode.Minus: tool = Tool.Spike; break;
             case KeyCode.Equals: tool = Tool.Ice; break;
+            case KeyCode.R: tool = Tool.RespawnPoint; break;
             case KeyCode.Delete:
                 if (tool != Tool.Partition || partitionIndex < 0) return false;
                 DeleteSelectedPartition();
@@ -1962,6 +2033,20 @@ public sealed class LabLevelEditorWindow : EditorWindow
             Handles.color = blocked ? new Color(1f, 0.35f, 0.3f, 0.95f) : IceGroupColor(ice.groupId);
             Handles.DrawWireCube(CellCenter(ice.cell), Vector3.one);
         }
+
+    }
+
+    void DrawRespawnPointHandles(LabLevelData data)
+    {
+        if (data.respawnPoints == null) return;
+        Handles.color = new Color(0.35f, 1f, 0.65f, 0.95f);
+        for (int i = 0; i < data.respawnPoints.Count; i++)
+        {
+            var point = data.respawnPoints[i];
+            Handles.DrawWireCube(new Vector3(point.position.x, point.position.y, 0f),
+                new Vector3(3f, 3f, 0.01f));
+            Handles.Label(new Vector3(point.position.x - 1.4f, point.position.y + 1.6f, 0f), "重生点");
+        }
     }
 
     static Color IceGroupColor(int groupId)
@@ -2085,6 +2170,18 @@ public sealed class LabLevelEditorWindow : EditorWindow
             return;
         }
 
+        if (tool == Tool.RespawnPoint)
+        {
+            bool blocked = !inBounds;
+            Handles.color = blocked
+                ? new Color(1f, 0.3f, 0.25f, 0.9f)
+                : new Color(color.r, color.g, color.b, 0.75f);
+            Handles.DrawWireCube(new Vector3(cell.x + 0.5f, cell.y + 0.5f, 0f),
+                new Vector3(3f, 3f, 0.01f));
+            Handles.Label(new Vector3(cell.x + 0.5f, cell.y + 2.1f, 0f), "重生点");
+            return;
+        }
+
         Handles.color = new Color(color.r, color.g, color.b, 0.18f);
         Handles.DrawSolidRectangleWithOutline(
             RectVerts(cell.x, cell.y, cell.x + 1, cell.y + 1),
@@ -2123,6 +2220,7 @@ public sealed class LabLevelEditorWindow : EditorWindow
             case Tool.Door: return new Color(newDoorColor.r, newDoorColor.g, newDoorColor.b, 0.95f);
             case Tool.Spike: return new Color(0.75f, 0.82f, 0.92f, 0.95f);
             case Tool.Ice: return new Color(0.42f, 0.75f, 1f, 0.95f);
+            case Tool.RespawnPoint: return new Color(0.35f, 1f, 0.65f, 0.95f);
             default: return new Color(1f, 0.85f, 0.3f, 0.95f);
         }
     }

@@ -73,7 +73,7 @@ Project/nameless/
 | [#29](https://github.com/sfher/hui/issues/29) | 冰块 | 尚未进入当前基准；包含破坏、编组和冰面加速。对应主线 L3/L4。 |
 | [#27](https://github.com/sfher/hui/issues/27) | 绳子 | 已有 `LabVerticalRope` 基础实现，但策划中的完整交互、反馈和关卡用途仍待补齐。 |
 | [#34](https://github.com/sfher/hui/issues/34) | 地刺 | 待加入并接入关卡编辑器；对应主线绳子进阶与 L9。 |
-| [#32](https://github.com/sfher/hui/issues/32) | 重生点 | 已补齐：按唯一玩家接触激活，多点互斥，双人同时接触不记录，传送不重置记录状态。 |
+| [#32](https://github.com/sfher/hui/issues/32) | 重生点 | 已补齐：按唯一玩家接触激活，多点互斥，双人同时接触不记录，传送不重置记录状态；关卡编辑器支持摆放。 |
 | [#33](https://github.com/sfher/hui/issues/33) | 传送点 | 基础传送已在；选择状态和重置地图时排除重生点待补全，优先级可低。 |
 | [#35](https://github.com/sfher/hui/issues/35) | 大炮方向 bug | 已知小 bug：B 从开口朝上的 A 进入时，射出方向可能与冲刺方向相反。 |
 | [#26](https://github.com/sfher/hui/issues/26) | 像素美术资源 | 资源清单和规格已明确，当前仍是程序生成占位显示。 |

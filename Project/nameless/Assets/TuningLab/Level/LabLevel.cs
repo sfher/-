@@ -35,6 +35,7 @@ public sealed class LabLevel : MonoBehaviour
     public int DoorCount => Data.doors != null ? Data.doors.Count : 0;
     public int SpikeCount => Data.spikes != null ? Data.spikes.Count : 0;
     public int IceCount => Data.ices != null ? Data.ices.Count : 0;
+    public int RespawnPointCount => Data.respawnPoints != null ? Data.respawnPoints.Count : 0;
 
     Transform generatedRoot;
     // 运行时生成的钥匙/门/冰；地图重置时要关回去、把捡走的钥匙长回来、把碎掉的冰恢复。
@@ -133,6 +134,8 @@ public sealed class LabLevel : MonoBehaviour
         for (int i = 0; i < data.doors.Count; i++) AddDoor(root.transform, data.doors[i], preview);
         for (int i = 0; i < data.spikes.Count; i++) AddSpike(root.transform, data.spikes[i]);
         for (int i = 0; i < data.ices.Count; i++) AddIce(root.transform, data.ices[i], material, preview);
+        for (int i = 0; i < data.respawnPoints.Count; i++)
+            AddRespawnPoint(root.transform, data.respawnPoints[i]);
     }
 
     void AddSolid(Transform parent, RectInt rect, PhysicsMaterial2D material)
@@ -213,6 +216,14 @@ public sealed class LabLevel : MonoBehaviour
 
         ice.ApplyShape();
         if (!preview) runtimeIces.Add(ice);
+    }
+
+    static void AddRespawnPoint(Transform parent, LabRespawnPointSpec spec)
+    {
+        var go = new GameObject("RespawnPoint");
+        go.transform.SetParent(parent, false);
+        go.transform.position = spec.position;
+        go.AddComponent<LabRespawnPoint>();
     }
 
     void AddKey(Transform parent, LabKeySpec spec, bool preview)

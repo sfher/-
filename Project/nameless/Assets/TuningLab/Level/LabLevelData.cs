@@ -31,6 +31,8 @@ public sealed class LabLevelData
     public List<LabSpikeSpec> spikes = new List<LabSpikeSpec>();
     /// <summary>冰块（1×1，可编组；红热边接触融一块，v2 碰撞碎整组）。</summary>
     public List<LabIceSpec> ices = new List<LabIceSpec>();
+    /// <summary>重生点（3×3 触发区，中心坐标）。</summary>
+    public List<LabRespawnPointSpec> respawnPoints = new List<LabRespawnPointSpec>();
     /// <summary>连续关卡分区。每个分区的 bounds 同时是它的相机范围；B 进入哪个分区就用哪个分区。</summary>
     public List<LabLevelPartition> partitions = new List<LabLevelPartition>();
 
@@ -152,6 +154,32 @@ public sealed class LabLevelData
         return ices.RemoveAll(ice => ice.cell == cell) > 0;
     }
 
+    public bool PlaceRespawnPoint(Vector2Int cell)
+    {
+        if (respawnPoints == null) respawnPoints = new List<LabRespawnPointSpec>();
+        var position = new Vector2(cell.x + 0.5f, cell.y + 0.5f);
+        for (int i = 0; i < respawnPoints.Count; i++)
+            if (respawnPoints[i].position == position) return false;
+        respawnPoints.Add(new LabRespawnPointSpec(position));
+        return true;
+    }
+
+    public bool RemoveRespawnPoint(Vector2Int cell)
+    {
+        if (respawnPoints == null) return false;
+        var position = new Vector2(cell.x + 0.5f, cell.y + 0.5f);
+        return respawnPoints.RemoveAll(point => point.position == position) > 0;
+    }
+
+    public bool HasRespawnPoint(Vector2Int cell)
+    {
+        if (respawnPoints == null) return false;
+        var position = new Vector2(cell.x + 0.5f, cell.y + 0.5f);
+        for (int i = 0; i < respawnPoints.Count; i++)
+            if (respawnPoints[i].position == position) return true;
+        return false;
+    }
+
     /// <summary>编辑器新建组用：当前最大组号 + 1；没有冰块时从 1 开始。0 是合法组，不作为默认。</summary>
     public int NextIceGroupId()
     {
@@ -194,6 +222,7 @@ public sealed class LabLevelData
         if (doors == null) doors = new List<LabDoorSpec>();
         if (spikes == null) spikes = new List<LabSpikeSpec>();
         if (ices == null) ices = new List<LabIceSpec>();
+        if (respawnPoints == null) respawnPoints = new List<LabRespawnPointSpec>();
         if (partitions == null) partitions = new List<LabLevelPartition>();
 
         // 门色漏写/手填成透明时回落到默认色，否则门在场景里完全看不见。
@@ -225,6 +254,18 @@ public sealed class LabLevelData
             partition.bounds = NormalizeRect(partition.bounds);
             if (string.IsNullOrEmpty(partition.name)) partition.name = "Level " + (i + 1);
         }
+
+        var uniqueRespawnPoints = new HashSet<Vector2>();
+        for (int i = respawnPoints.Count - 1; i >= 0; i--)
+        {
+            if (!uniqueRespawnPoints.Add(respawnPoints[i].position))
+                respawnPoints.RemoveAt(i);
+        }
+        respawnPoints.Sort((a, b) =>
+        {
+            int y = a.position.y.CompareTo(b.position.y);
+            return y != 0 ? y : a.position.x.CompareTo(b.position.x);
+        });
 
         solids.Sort(CompareCells);
 
@@ -284,6 +325,7 @@ public sealed class LabLevelData
             doors = new List<LabDoorSpec>();
             spikes = new List<LabSpikeSpec>();
             ices = new List<LabIceSpec>();
+            respawnPoints = new List<LabRespawnPointSpec>();
             partitions = new List<LabLevelPartition>();
             return;
         }
@@ -299,6 +341,8 @@ public sealed class LabLevelData
         doors = new List<LabDoorSpec>(other.doors ?? new List<LabDoorSpec>());
         spikes = new List<LabSpikeSpec>(other.spikes ?? new List<LabSpikeSpec>());
         ices = new List<LabIceSpec>(other.ices ?? new List<LabIceSpec>());
+        respawnPoints = new List<LabRespawnPointSpec>(
+            other.respawnPoints ?? new List<LabRespawnPointSpec>());
         partitions = new List<LabLevelPartition>();
         if (other.partitions != null)
         {
@@ -471,6 +515,17 @@ public sealed class LabLevelData
                 ice.cell += delta;
                 ices[i] = ice;
             }
+
+            if (respawnPoints != null)
+            {
+                for (int i = 0; i < respawnPoints.Count; i++)
+                {
+                    var point = respawnPoints[i];
+                    if (!oldRect.Contains(point.position)) continue;
+                    point.position += shift;
+                    respawnPoints[i] = point;
+                }
+            }
         }
 
         if (oldRect.Contains(spawnA)) spawnA += shift;
@@ -530,6 +585,8 @@ public sealed class LabLevelData
                 spikes.RemoveAll(spike => rect.Contains(new Vector2(spike.cell.x + 0.5f, spike.cell.y + 0.5f)));
             if (ices != null)
                 ices.RemoveAll(ice => rect.Contains(new Vector2(ice.cell.x + 0.5f, ice.cell.y + 0.5f)));
+            if (respawnPoints != null)
+                respawnPoints.RemoveAll(point => rect.Contains(point.position));
         }
 
         partitions.RemoveAt(index);
@@ -661,6 +718,25 @@ public sealed class LabLevelData
                 var ice = ices[i];
                 int cx0 = ice.cell.x, cx1 = ice.cell.x + 1;
                 int cy0 = ice.cell.y, cy1 = ice.cell.y + 1;
+                if (!any) { x0 = cx0; y0 = cy0; x1 = cx1; y1 = cy1; any = true; }
+                else
+                {
+                    x0 = Mathf.Min(x0, cx0); y0 = Mathf.Min(y0, cy0);
+                    x1 = Mathf.Max(x1, cx1); y1 = Mathf.Max(y1, cy1);
+                }
+
+            }
+        }
+
+        if (respawnPoints != null)
+        {
+            for (int i = 0; i < respawnPoints.Count; i++)
+            {
+                var point = respawnPoints[i];
+                int cx0 = Mathf.FloorToInt(point.position.x - 1.5f);
+                int cx1 = Mathf.CeilToInt(point.position.x + 1.5f);
+                int cy0 = Mathf.FloorToInt(point.position.y - 1.5f);
+                int cy1 = Mathf.CeilToInt(point.position.y + 1.5f);
                 if (!any) { x0 = cx0; y0 = cy0; x1 = cx1; y1 = cy1; any = true; }
                 else
                 {
@@ -833,6 +909,22 @@ public struct LabIceSpec
 
     /// <summary>冰块盖住的格子（1×1）。</summary>
     public RectInt Cells() => new RectInt(cell.x, cell.y, 1, 1);
+}
+
+[System.Serializable]
+public struct LabRespawnPointSpec
+{
+    public Vector2 position;
+
+    public LabRespawnPointSpec(Vector2 position)
+    {
+        this.position = position;
+    }
+
+    public RectInt Cells() => new RectInt(
+        Mathf.FloorToInt(position.x - 1.5f),
+        Mathf.FloorToInt(position.y - 1.5f),
+        3, 3);
 }
 
 /// <summary>
