@@ -212,6 +212,49 @@ public sealed class LabIceTests
     }
 
     [UnityTest]
+    public IEnumerator SlidingAcrossIceAtHighSpeedKeepsHorizontalSpeed()
+    {
+        MakeFloor();
+        for (int x = 0; x < 40; x++) MakeIce(new Vector2Int(x, 0), 1);
+
+        var a = MakePlayer("A_Box", TuningLab.A_Pixels, true);
+        a.Teleport(new Vector2(0.5f, 1f + a.HalfHeight));
+        yield return WaitUntil(() => a.Grounded, 2f);
+
+        const float startSpeed = 38f;
+        a.SetVelocity(new Vector2(startSpeed, 0f));
+        float minSpeed = startSpeed;
+        for (int i = 0; i < 30; i++)
+        {
+            yield return new WaitForFixedUpdate();
+            minSpeed = Mathf.Min(minSpeed, a.Velocity.x);
+        }
+
+        Assert.Greater(minSpeed, startSpeed - 1f,
+            "高速滑过冰块接缝时不应突然掉速，最低 " + minSpeed);
+    }
+
+    [UnityTest]
+    public IEnumerator RuntimeIceGroupBreaksTogether()
+    {
+        var level = root.AddComponent<LabLevel>();
+        lab.level = level;
+        for (int x = 0; x < 14; x++) level.Data.PlaceIce(new Vector2Int(x, 0), 1);
+        level.Data.Normalize();
+        level.BuildRuntime(root.transform, slick);
+
+        var ices = root.GetComponentsInChildren<LabIce>();
+        Assert.AreEqual(14, ices.Length, "运行时生成 14 块同组冰");
+        Assert.AreEqual(14, LabIce.GroupOf(1).Count, "静态组表包含全部 14 块");
+
+        ices[0].BreakGroup();
+
+        for (int i = 0; i < ices.Length; i++)
+            Assert.IsTrue(ices[i].Broken, "同组第 " + i + " 块也应碎");
+        yield return null;
+    }
+
+    [UnityTest]
     public IEnumerator HittingIceSideAtV2StillBreaksTheGroup()
     {
         MakeFloor();
@@ -227,6 +270,67 @@ public sealed class LabIceTests
 
         Assert.IsTrue(ice.Broken, "侧撞 v2 应破坏这一块");
         Assert.IsTrue(neighbor.Broken, "同组冰块应一起碎");
+    }
+
+    [UnityTest]
+    public IEnumerator HotEdgeStandingOnIceDoesNotMeltTheSupportBlock()
+    {
+        MakeFloor();
+        var row = new System.Collections.Generic.List<LabIce>();
+        for (int x = 0; x < 20; x++) row.Add(MakeIce(new Vector2Int(x, 0), 1));
+
+        var a = MakePlayer("A_Box", TuningLab.A_Pixels, true);
+        a.Teleport(new Vector2(0.5f, 1f + a.HalfHeight));
+        yield return WaitUntil(() => a.Grounded, 2f);
+        Assert.IsTrue(a.OnIce);
+
+        a.StrikeEdge(LabPlayer.Edge.Bottom, true);   // 底边 Hot1
+        a.SetVelocity(new Vector2(10f, 0f));          // 低速滑过多个接缝
+        for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
+
+        for (int i = 0; i < row.Count; i++)
+            Assert.IsFalse(row[i].Broken, "承重接触不应融掉脚下的冰块，第 " + i + " 块碎了");
+    }
+
+    [UnityTest]
+    public IEnumerator HotEdgeSideImpactAtV2BreaksWholeGroup()
+    {
+        MakeFloor();
+        var first = MakeIce(new Vector2Int(1, 0), 1);
+        var second = MakeIce(new Vector2Int(2, 0), 1);
+
+        var a = MakePlayer("A_Box", TuningLab.A_Pixels, true);
+        a.Teleport(new Vector2(0.1f, a.HalfHeight));
+        yield return WaitUntil(() => a.Grounded, 2f);
+
+        a.StrikeEdge(LabPlayer.Edge.Right, true);     // 侧撞会落在右边
+        a.SetVelocity(new Vector2(lab.IceBreakSpeed + 4f, 0f));
+        yield return WaitUntil(() => first.Broken, 2f);
+
+        Assert.IsTrue(first.Broken, "v2 侧撞应破坏被撞块");
+        Assert.IsTrue(second.Broken, "v2 撞击优先于红热，整组一起碎");
+    }
+
+    [UnityTest]
+    public IEnumerator HotEdgeLowSpeedSideImpactMeltsOnlyOneBlock()
+    {
+        MakeFloor();
+        var first = MakeIce(new Vector2Int(1, 0), 1);
+        var second = MakeIce(new Vector2Int(2, 0), 1);
+
+        var a = MakePlayer("A_Box", TuningLab.A_Pixels, true);
+        a.Teleport(new Vector2(0.1f, a.HalfHeight));
+        yield return WaitUntil(() => a.Grounded, 2f);
+
+        a.StrikeEdge(LabPlayer.Edge.Right, true);
+        a.SetVelocity(new Vector2(15f, 0f));
+        yield return WaitUntil(() => first.Broken, 2f);
+        for (int i = 0; i < 5; i++) yield return new WaitForFixedUpdate();
+
+        Assert.IsTrue(first.Broken, "低速红热侧撞融掉被接触的一块");
+        Assert.IsFalse(second.Broken, "低速红热只融一块，不整组");
+        Assert.AreEqual(LabPlayer.EdgeState.Normal, a.GetEdge(LabPlayer.Edge.Right),
+            "融化后该边回普通");
     }
 
     // 工具 ---------------------------------------------------------------

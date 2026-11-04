@@ -474,17 +474,24 @@ public class LabPlayer : MonoBehaviour
         LastImpactTime = Time.time;
 
         // 冰块不参与普通地形的锻造状态机，单独结算：
-        //   红热边（Hot1/Hot2）→ 只融这一块，边强制回普通；
-        //   沿接触法线撞进去的分量到 v2 → 整组破坏；
-        //   普通边接触 → 什么都不发生。
+        //   沿接触法线撞进去的分量到 v2 → 整组破坏（优先于红热）；
+        //   非承重的红热边（Hot1/Hot2）→ 只融这一块，边强制回普通；
+        //   普通边接触 / 红热边踩在冰面上 → 什么都不发生。
         // 只算法线分量：站在冰面上横向滑行时法线是竖直的，水平速度再快也不算撞击。
+        // 承重接触（法线朝上且当前在地面）不能触发红热融冰，否则玩家会把自己脚下的冰块融掉再摔停。
         var ice = c.collider != null ? c.collider.GetComponentInParent<LabIce>() : null;
         if (ice != null)
         {
-            Edge edge = EdgeFor(-n);
-
-            if (canBeRedHot)
+            if (lab.TierOfSpeed(impact) >= lab.IceBreakTier)
             {
+                ice.BreakGroup();
+                return;
+            }
+
+            bool supportContact = grounded && n.y > 0.5f;
+            if (canBeRedHot && !supportContact)
+            {
+                Edge edge = EdgeFor(-n);
                 var state = GetEdge(edge);
                 if (state == EdgeState.Hot1 || state == EdgeState.Hot2)
                 {
@@ -492,12 +499,6 @@ public class LabPlayer : MonoBehaviour
                     SetEdge(edge, EdgeState.Normal);
                     return;
                 }
-            }
-
-            if (lab.TierOfSpeed(impact) >= lab.IceBreakTier)
-            {
-                ice.BreakGroup();
-                return;
             }
 
             return;

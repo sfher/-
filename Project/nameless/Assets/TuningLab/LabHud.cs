@@ -224,7 +224,7 @@ public class LabHud : MonoBehaviour
             lab.RedHotSpeed * lab.RedHotSpeed, lab.redHotTierIndex), small);
         GUILayout.Label(string.Format("锻造      撞场景沿轴 v ≥ {0:0}（v{1} 门槛）→ 常态①→热②→遇冷砸碎◇→遇热塌框",
             lab.ForgeSpeed, Mathf.Min(lab.forgeTierIndex, lab.redHotTierIndex)), small);
-        GUILayout.Label(string.Format("冰块      法线撞击 ≥ {0:0}（v{1} 门槛）→ 整组碎；红热边接触 → 只融一块并回普通",
+        GUILayout.Label(string.Format("冰块      法线撞击 ≥ {0:0}（v{1} 门槛）→ 整组碎（优先）；红热非承重接触 → 只融一块",
             lab.IceBreakSpeed, lab.IceBreakTier), small);
         if (collapseCount > 0)
             GUILayout.Label(string.Format("  塌框 {0} 次   最近 {1}（热二遇红热 = 死亡）", collapseCount, lastCollapse), WarnStyle());
