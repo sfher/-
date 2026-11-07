@@ -459,6 +459,38 @@ public sealed class LabForgeTests
         Assert.AreEqual(LabPlayer.EdgeState.Normal, a.GetEdge(LabPlayer.Edge.Bottom), "另一条轴不参与");
     }
 
+    /// <summary>
+    /// Issue #82：两块水平紧贴静止时不该反复外抛撞击事件——订阅方的碰撞音效
+    /// 靠它发声，贴着不动也一直响就是从这里漏出去的。有一方主动顶上去时照常外抛。
+    /// </summary>
+    [UnityTest]
+    public IEnumerator SnugStationaryPairRaisesNoHitEvent()
+    {
+        MakeFloor();
+        var a = MakeA("A_Box", true);
+        var b = MakeA("B_Chunk", false);
+
+        a.other = b;
+        b.other = a;
+        int hits = 0;
+        lab.PlayerHit += info => hits++;
+
+        float aHalf = TuningLab.A_Pixels / (2f * TuningLab.CellPixels);
+        float bHalf = TuningLab.B_Pixels / (2f * TuningLab.CellPixels);
+        a.Teleport(new Vector2(0f, aHalf + 0.02f));
+        b.Teleport(new Vector2(aHalf + bHalf, bHalf + 0.02f));
+
+        // 贴着待够久：0.18s 对撞冷却会过期好几轮，旧逻辑每轮都外抛一次
+        yield return StepFixed(40);
+        Assert.AreEqual(0, hits, "紧贴静止不算撞击，不外抛撞击事件");
+
+        // 一方主动顶上去：接近速度是走路量级，照常外抛
+        lab.groundBrake = 0f;
+        a.SetVelocity(new Vector2(6f, 0f));
+        yield return WaitUntil(() => hits > 0, 3f);
+        Assert.Greater(hits, 0, "主动顶撞要外抛撞击事件");
+    }
+
     [UnityTest]
     public IEnumerator BHasNoForgableEdges()
     {
@@ -534,6 +566,11 @@ public sealed class LabForgeTests
         go.transform.position = new Vector3(x + 0.5f, top * 0.5f - 1f, 0f);
         go.transform.localScale = new Vector3(1f, top, 1f);
         go.AddComponent<BoxCollider2D>().sharedMaterial = slick;
+    }
+
+    static IEnumerator StepFixed(int n)
+    {
+        for (int i = 0; i < n; i++) yield return new WaitForFixedUpdate();
     }
 
     static IEnumerator WaitUntil(System.Func<bool> condition, float timeoutSeconds)

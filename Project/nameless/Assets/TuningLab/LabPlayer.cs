@@ -180,6 +180,8 @@ public class LabPlayer : MonoBehaviour
     float coyoteTimer;
     float jumpBuffer;
     float nextHitTime;
+    /// <summary>外抛撞击事件的最小接近速度（#82）：紧贴静止时的求解器残速远低于它，主动顶撞的走路速度 8 远高于它。</summary>
+    const float HitEventMinClosingSpeed = 1f;
     float facing = 1f;
     float dashTimer;
     Vector2 dashDir;
@@ -865,7 +867,14 @@ public class LabPlayer : MonoBehaviour
         nextHitTime = Time.time + 0.18f;
         other.SetHitCooldown(Time.time + 0.18f);
 
-        if (lab != null)
+        // 只有真的迎面撞上才算一次「撞击事件」（#82，2026-11-07）：
+        // 两块紧贴静止时 Stay 回调每过 0.18s 冷却就会重跑一次互换，
+        // 旧逻辑无条件外抛，订阅方的碰撞音效便跟着无限重播。
+        // 接近速度 = 自己沿轴分量 − 对方沿轴分量（轴由自己指向对方）；
+        // 有一方主动顶着（走路 8）或冲刺/坠落撞入时它远大于门槛，照常外抛，
+        // 锻造/红热的判定在上面已经结算完，不受这道门影响。
+        float closingSpeed = a - b;
+        if (lab != null && closingSpeed > HitEventMinClosingSpeed)
         {
             lab.RaisePlayerHit(new TuningLab.HitInfo
             {
