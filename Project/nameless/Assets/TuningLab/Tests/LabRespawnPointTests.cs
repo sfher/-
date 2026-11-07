@@ -233,8 +233,15 @@ public sealed class LabRespawnPointTests
         yield return Activate(checkpointPosition);
         yield return MoveBothOutside(checkpointPosition);
 
+        // 复活位置要在**复活那一刻**读：#98 —— 这个用例的场地没有地板，玩家
+        // 复活后（WakeFromDeath 把 Kinematic 改回 Dynamic）会立刻自由落体，
+        // 重力换算下来约 50 格/秒²，等两个物理步就已经掉了 0.3 格。
+        // 之前的断言在几帧之后才读位置，量到的其实是"掉到哪了"，不是"落在哪"。
+        // Kill() 到复活是同步走完的（RespawnRecordedPlayers 当场调用 ReviveAt），
+        // 所以 Kill() 一返回就读，拿到的就是落点。
         int resetCount = 0;
         lab.MapReset += () => resetCount++;
+
         lab.PlayerA.Kill();
         yield return new WaitForFixedUpdate();
         yield return new WaitForFixedUpdate();
@@ -242,16 +249,18 @@ public sealed class LabRespawnPointTests
         Assert.IsFalse(lab.PlayerA.IsAlive);
 
         lab.PlayerB.Kill();
+        Vector2 slotA = lab.PlayerA.transform.position;
+        Vector2 slotB = lab.PlayerB.transform.position;
         yield return new WaitForFixedUpdate();
         yield return new WaitForFixedUpdate();
 
         Assert.IsTrue(lab.PlayerA.IsAlive);
         Assert.IsTrue(lab.PlayerB.IsAlive);
         Assert.AreEqual(1, resetCount, "两人都死亡后只重置一次地图");
-        Assert.AreEqual(checkpointPosition.x - 1f, lab.PlayerA.transform.position.x, 0.001f);
-        Assert.AreEqual(checkpointPosition.x + 1f, lab.PlayerB.transform.position.x, 0.001f);
-        Assert.AreEqual(checkpointPosition.y, lab.PlayerA.transform.position.y, 0.001f);
-        Assert.AreEqual(checkpointPosition.y, lab.PlayerB.transform.position.y, 0.001f);
+        Assert.AreEqual(checkpointPosition.x - 1f, slotA.x, 0.001f, "A 落在激活点左侧一格");
+        Assert.AreEqual(checkpointPosition.x + 1f, slotB.x, 0.001f, "B 落在激活点右侧一格");
+        Assert.AreEqual(checkpointPosition.y, slotA.y, 0.001f, "A 的落点高度就是激活点高度");
+        Assert.AreEqual(checkpointPosition.y, slotB.y, 0.001f, "B 的落点高度就是激活点高度");
     }
 
     [UnityTest]
