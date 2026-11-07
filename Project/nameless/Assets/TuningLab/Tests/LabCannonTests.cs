@@ -458,18 +458,24 @@ public sealed class LabCannonTests
         Shatter(a, LabPlayer.Edge.Right);
         Assert.AreEqual(LabForm.Converter, a.Form);
 
-        b.Teleport((Vector2)a.transform.position + Vector2.right * (AHalf + BHalf + 1.5f));
+        // 贴到 A 右侧一格内起速：横向空气阻力每步减 1，起远了进膛时就不是原速了。
+        b.Teleport((Vector2)a.transform.position + Vector2.right * (AHalf + BHalf + 0.1f));
         b.SetVelocity(Vector2.left * EntrySpeed);
         yield return WaitUntil(() => a.Loaded, 3f);
 
+        // B 被吸进膛时把真正的进入速度记下来，出膛后拿它对照。
+        float entrySpeed = a.ChamberVelocity.magnitude;
         Assert.IsTrue(b.Suspended);
         yield return StepFixed(Mathf.CeilToInt(0.8f / Time.fixedDeltaTime));
         Assert.IsTrue(a.Loaded, "L 形装填未满 1 秒前不能发射");
 
         yield return WaitUntil(() => !a.Loaded, 1f);
         Assert.IsFalse(b.Suspended);
-        Assert.Greater(b.Velocity.y, 0f, "从右侧进入应从上侧射出");
-        Assert.AreEqual(EntrySpeed, b.Velocity.magnitude, 0.5f,
+        // 出膛后竖直方向不受滑翔照顾，实时速度每步都被重力减掉一点，所以取出膛那一刻的记录值。
+        Vector2 launchVelocity = a.LastLaunchVelocity;
+        Assert.Greater(launchVelocity.y, 0f, "从右侧进入应从上侧射出");
+        // L 形只转向、不改速：出膛速度就是进膛速度，A 自己的速度不叠进来。
+        Assert.AreEqual(entrySpeed, launchVelocity.magnitude, 0.5f,
                         "L 形应保持 B 的原速，不叠加 A 的速度");
         Assert.IsFalse(b.InDashState, "普通速度进入不能被伪造为冲刺态");
     }

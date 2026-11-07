@@ -159,6 +159,8 @@ public class LabPlayer : MonoBehaviour
     public bool CanLoad => canBeRedHot && form == LabForm.Cannon && loaded == null;
     /// <summary>进入时记下的速度 V前；膛空时是零。</summary>
     public Vector2 ChamberVelocity => loaded != null ? loaded.chamberVelocity : Vector2.zero;
+    /// <summary>最近一次出膛的速度，取的是 Wake 那一刻的值（出膛后立刻受重力，读实时速度会偏小）。</summary>
+    public Vector2 LastLaunchVelocity { get; private set; }
     /// <summary>下一发的出膛速度：√(Vb² + 一个等级间距的 v²)。</summary>
     public float LaunchSpeed => lab == null || loaded == null
         ? 0f
@@ -1343,6 +1345,10 @@ public class LabPlayer : MonoBehaviour
         if (exit == entry) return false;
 
         loaded = b;
+        // 和 TryAbsorb 一样要把 B 的 host 指过来：Suspended 靠 host 判定，
+        // 少了这一句 TryResolveHit 开头那道 if (dart.Suspended) return 就挡不住，
+        // 同一个接触会逐帧重复走装填，B 也会继续收碰撞回调被弹开（#96）。
+        b.host = this;
         loadedConverter = true;
         converterExitEdge = exit;
         converterLoadTimer = 1f;
@@ -1383,6 +1389,7 @@ public class LabPlayer : MonoBehaviour
         loadedConverter = false;
         Vector2 dir = LabForms.EdgeNormal(converterExitEdge);
         float speed = b.chamberVelocity.magnitude;
+        LastLaunchVelocity = dir * speed;
         b.Wake(rb.position + dir * (HalfHeight + b.HalfHeight + 0.05f), dir * speed);
         if (loadedDash.active)
         {
