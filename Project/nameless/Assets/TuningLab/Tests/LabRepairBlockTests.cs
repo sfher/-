@@ -108,24 +108,30 @@ public sealed class LabRepairBlockTests
     [UnityTest]
     public IEnumerator SpiritEdgePressedOnRepairFaceRestoresShape()
     {
-        // 地形 (0,0)(1,0) 当地面，修复方块立在 (2,0)：A 沿着地面右走，撞在方块的左面上。
+        // 地形铺到 (0,0)..(3,0)，修复方块立在 (4,1)，与玩家同一层。
+        //
+        // #97 原来的场景把方块摆在 (2,0)、让 A 从 (0.5, AHalf) 开过去：
+        // 一来 6 格/秒会被地面制动（groundBrake 30）在 0.2 秒内吃光，
+        // 根本走不到方块跟前；二来方块和玩家不在同一层，
+        // 那样即使贴上也只有脚底接触、拿不到侧面接触点。两处都不成立。
+        // 现在直接把 A 摆在方块左侧同一层，再给一点向右的速度顶上去。
         var level = root.AddComponent<LabLevel>();
         lab.level = level;
-        level.Data.AddCell(new Vector2Int(0, 0));
-        level.Data.AddCell(new Vector2Int(1, 0));
-        level.Data.PlaceRepairBlock(new Vector2Int(2, 0));
+        for (int x = 0; x <= 3; x++) level.Data.AddCell(new Vector2Int(x, 0));
+        level.Data.PlaceRepairBlock(new Vector2Int(4, 1));   // 和玩家同一层
         level.Data.Normalize();
         level.BuildRuntime(root.transform, slick);
 
         var a = MakeFrame();
-        a.Teleport(new Vector2(0.5f, AHalf));
-        yield return WaitUntil(() => a.Grounded, 2f);
+        a.Teleport(new Vector2(4f - AHalf - 0.1f, 1f + AHalf));
+        for (int i = 0; i < 5; i++) yield return new WaitForFixedUpdate();
+        Assert.IsTrue(a.Grounded, "A 要站在地形上");
 
         Shatter(a, LabPlayer.Edge.Right);
         Assert.AreEqual(LabPlayer.EdgeState.Spirit, a.GetEdge(LabPlayer.Edge.Right));
         Assert.AreEqual(LabForm.Cannon, a.Form, "碎一条边就是 u 形大炮");
 
-        a.SetVelocity(new Vector2(6f, 0f));
+        a.SetVelocity(new Vector2(4f, 0f));
         yield return WaitUntil(
             () => a.GetEdge(LabPlayer.Edge.Right) == LabPlayer.EdgeState.Normal, 2f);
 
