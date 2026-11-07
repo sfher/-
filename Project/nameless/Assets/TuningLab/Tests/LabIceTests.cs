@@ -615,4 +615,55 @@ public sealed class LabIceTests
 
         Assert.IsTrue(condition(), $"等待条件超时（{timeoutSeconds}s）");
     }
+
+    // #108：直角拐角处的冰撞不碎 ------------------------------------------
+
+    /// <summary>
+    /// Issue #108 的布局：(0,1) 一块孤立的冰，正下方 (0,0) 接一整排冰，形成直角。
+    /// 从右侧水平撞向 (0,1)，速度达到破坏门槛时它必须碎。
+    /// </summary>
+    [UnityTest]
+    public IEnumerator IceAtRightAngleCornerBreaksWhenHitFromTheSide()
+    {
+        var level = root.AddComponent<LabLevel>();
+        lab.level = level;
+        for (int x = 0; x <= 8; x++) level.Data.PlaceIce(new Vector2Int(x, 0), 1);   // 下面一整排
+        level.Data.PlaceIce(new Vector2Int(0, 1), 1);                               // 拐角那块
+        level.Data.Normalize();
+        level.BuildRuntime(root.transform, slick);
+        yield return null;
+        Physics2D.SyncTransforms();
+
+        LabIce corner = null;
+        for (int i = 0; i < LabIce.All.Count; i++)
+            if (LabIce.All[i].cell == new Vector2Int(0, 1)) { corner = LabIce.All[i]; break; }
+        Assert.IsNotNull(corner, "拐角那块冰要存在");
+
+        var a = MakePlayer("A_Box", TuningLab.A_Pixels, true);
+        // 站在第二行冰顶上，贴着 (0,1) 的右侧，水平向左撞
+        a.Teleport(new Vector2(2.5f, 1f + a.HalfHeight));
+        yield return WaitUntil(() => a.Grounded, 2f);
+        yield return new WaitForFixedUpdate();
+
+        float speed = lab.IceBreakSpeed + 4f;
+        a.SetVelocity(new Vector2(-speed, 0f));
+
+        // 逐帧记录：位置、速度、撞击读数，失败时能直接看出卡在哪一步
+        string trace = "";
+        for (int i = 0; i < 20; i++)
+        {
+            yield return new WaitForFixedUpdate();
+            trace += i + ": x=" + a.transform.position.x.ToString("F2")
+                + " v=" + a.Velocity.x.ToString("F1")
+                + " tier=" + a.LastImpactTier
+                + " speed=" + a.LastImpactSpeed.ToString("F1")
+                + " n=" + a.LastImpactNormal
+                + " grounded=" + a.Grounded + "\n";
+        }
+
+        Assert.IsTrue(corner.Broken,
+            "从右侧撞直角拐角处的冰，达到破坏速度就该碎。实际 x=" +
+            a.transform.position.x.ToString("F2") + " speed=" + speed.ToString("F1") +
+            " 门槛=" + lab.IceBreakSpeed.ToString("F1") + "\n" + trace);
+    }
 }

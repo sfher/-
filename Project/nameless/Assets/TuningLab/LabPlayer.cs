@@ -661,20 +661,55 @@ public class LabPlayer : MonoBehaviour
 
         if (ice == null)
         {
-            // 合并地形没有单块身份：找第一个落在冰块上的接触点。
+            // 合并地形没有单块身份：按接触点找回冰格。
+            //
+            // 不能取第一个能反查到冰的接触点就收工：#108 里玩家同时踩着第二行冰面、
+            // 又侧撞第一行拐角那块，同一个 Collision2D 里地面接触和墙面接触都在，
+            // 谁排在前面由物理引擎决定。按顺序取会拿到地面那个（法线朝上，水平速度
+            // 在它上面投影为 0），真正的撞墙接触永远没机会结算。
+            // 这里按**沿法线的撞击分量**挑最大的那个：谁被撞得最狠就算谁。
+            LabIce fallbackIce = null;
+            Vector2 fallbackN = n;
+            float fallbackImpact = impact;
+            bool haveFallback = false;
+
             for (int i = 0; i < c.contactCount; i++)
             {
                 ContactPoint2D contact = c.GetContact(i);
                 Vector2 cn = AxisNormal(contact.normal);
                 var candidate = LabIce.AtCell(contact.point - cn * 0.02f);
                 if (candidate == null) continue;
-                ice = candidate;
-                n = cn;
-                impact = Mathf.Abs(Vector2.Dot(lastFixedVelocity, cn));
-                break;
+
+                float candidateImpact = Mathf.Abs(Vector2.Dot(lastFixedVelocity, cn));
+
+                // 承重豁免只对"脚下那块冰"生效：踩着它不融，但不妨碍换一个接触面来判。
+                if (grounded && IsIceUnderPlayer(candidate))
+                {
+                    if (!haveFallback)
+                    {
+                        fallbackIce = candidate;
+                        fallbackN = cn;
+                        fallbackImpact = candidateImpact;
+                        haveFallback = true;
+                    }
+                    continue;
+                }
+
+                if (ice == null || candidateImpact > impact)
+                {
+                    ice = candidate;
+                    n = cn;
+                    impact = candidateImpact;
+                }
             }
 
-            if (ice == null) return false;
+            if (ice == null)
+            {
+                if (!haveFallback) return false;      // 有接触但都不是冰：交给普通地形
+                ice = fallbackIce;                    // 只有承重接触：保持原来的豁免行为
+                n = fallbackN;
+                impact = fallbackImpact;
+            }
         }
 
         LastImpactNormal = n;
