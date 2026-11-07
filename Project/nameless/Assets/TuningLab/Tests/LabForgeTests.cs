@@ -461,7 +461,7 @@ public sealed class LabForgeTests
 
     /// <summary>
     /// Issue #82：两块水平紧贴静止时不该反复外抛撞击事件——订阅方的碰撞音效
-    /// 靠它发声，贴着不动也一直响就是从这里漏出去的。有一方主动顶上去时照常外抛。
+    /// 靠它发声，贴着不动也一直响就是从这里漏出去的。
     /// </summary>
     [UnityTest]
     public IEnumerator SnugStationaryPairRaisesNoHitEvent()
@@ -483,12 +483,35 @@ public sealed class LabForgeTests
         // 贴着待够久：0.18s 对撞冷却会过期好几轮，旧逻辑每轮都外抛一次
         yield return StepFixed(40);
         Assert.AreEqual(0, hits, "紧贴静止不算撞击，不外抛撞击事件");
+    }
 
-        // 一方主动顶上去：接近速度是走路量级，照常外抛
-        lab.groundBrake = 0f;
-        a.SetVelocity(new Vector2(6f, 0f));
+    /// <summary>
+    /// 上一条的反向护栏：把贴合挡掉之后，真正的撞入不能跟着一起哑掉。
+    /// 必须从分开的状态撞过去 —— 贴住之后再推一把，双方动量已经互换、会一起朝同向飞，
+    /// 那本来就不构成一次撞击，拿它当护栏会把用例本身写错。
+    /// </summary>
+    [UnityTest]
+    public IEnumerator DashImpactStillRaisesHitEvent()
+    {
+        MakeFloor();
+        var a = MakeA("A_Box", true);
+        var b = MakeA("B_Chunk", false);
+
+        a.other = b;
+        b.other = a;
+        int hits = 0;
+        lab.PlayerHit += info => hits++;
+
+        float aHalf = TuningLab.A_Pixels / (2f * TuningLab.CellPixels);
+        float bHalf = TuningLab.B_Pixels / (2f * TuningLab.CellPixels);
+        a.Teleport(new Vector2(0f, aHalf + 0.02f));
+        b.Teleport(new Vector2(aHalf + bHalf + 2f, bHalf + 0.02f));
+        yield return StepFixed(2);
+
+        hits = 0;
+        b.SetVelocity(Vector2.left * lab.ForgeSpeed * 1.5f);
         yield return WaitUntil(() => hits > 0, 3f);
-        Assert.Greater(hits, 0, "主动顶撞要外抛撞击事件");
+        Assert.Greater(hits, 0, "带速度撞上来必须外抛撞击事件");
     }
 
     [UnityTest]
