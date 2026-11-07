@@ -172,6 +172,11 @@ public class LabPlayer : MonoBehaviour
     bool grounded;
     float dashLock;
     float playerContactTimer;
+    /// <summary>
+    /// 上一次物理步里是否已经和另一名玩家贴在一起。撞击（含音效）只在**贴合开始**那一步结算，
+    /// 持续贴着不再重复算 —— 否则两人并排站定、速度被反复互换，每过一个冷却就报一次撞击（#82）。
+    /// </summary>
+    bool playerContactPrev;
     float coyoteTimer;
     float jumpBuffer;
     float nextHitTime;
@@ -329,6 +334,8 @@ public class LabPlayer : MonoBehaviour
         coyoteTimer = grounded ? lab.coyoteTime : Mathf.Max(0f, coyoteTimer - dt);
         dashLock = Mathf.Max(0f, dashLock - dt);
         playerContactTimer = Mathf.Max(0f, playerContactTimer - dt);
+        // 贴合标记靠 Exit 回调清；这里兜底：确实没在贴着就清掉，免得这个标记泄漏到下一次接触。
+        if (playerContactPrev && playerContactTimer <= 0f) playerContactPrev = false;
         HitFlash = Mathf.Max(0f, HitFlash - dt * 4f);
 
         // 充能：接触地面或另一名玩家 = 给这一次充能"上弦"。
@@ -513,10 +520,21 @@ public class LabPlayer : MonoBehaviour
         if (Suspended) return;         // 膛里的人没有碰撞箱，这里的回调只能是进膛那一刻的残留
         if (IsPhantom(c.collider)) return;   // 幻影只由 LabPhantom 自己结算
         bool isPlayer = c.collider != null && c.collider.GetComponent<LabPlayer>() != null;
-        if (isPlayer) playerContactTimer = 0.12f;
+        if (isPlayer)
+        {
+            playerContactTimer = 0.12f;
+            // 新贴上：这一步允许结算撞击，之后 Stay 里就不再重复。
+            playerContactPrev = false;
+        }
         else if (!ResolveMagmaContact(c)) ForgeFromTerrain(c);   // 只有进入的那一帧锻造，贴墙摩擦不算
 
         TryResolveHit(c);
+    }
+
+    void OnCollisionExit2D(Collision2D c)
+    {
+        if (c.collider != null && c.collider.GetComponent<LabPlayer>() != null)
+            playerContactPrev = false;
     }
 
     void OnCollisionStay2D(Collision2D c)
@@ -538,6 +556,9 @@ public class LabPlayer : MonoBehaviour
         }
 
         TryResolveHit(c);
+
+        // 这一步之后两人就是"贴着"的状态了；Enter 置的 false 只用来放行撞上来的那一下。
+        if (isPlayer) playerContactPrev = true;
     }
 
     /// <summary>
@@ -844,6 +865,18 @@ public class LabPlayer : MonoBehaviour
                 StrikeEdge(EdgeFor(axis), redHot);
                 other.StrikeEdge(EdgeFor(-axis), redHot);
             }
+        }
+
+        // ---- 贴合去重（#82）----
+        // 两人已经贴住、而且谁都没在往对方身上使劲时，不再重复结算：
+        // 不交换动量、不抛 PlayerHit（撞击音效在那边播）。
+        // 以前这里无条件往下走，贴住后每过一个冷却就抛一次事件，于是"贴贴不动也一直响"。
+        // 判据用闭合速度而不是单方速度：静止贴住时它≈0；有人推着、或冲刺着撞上来时才够大。
+        if (playerContactPrev)
+        {
+            float closingSpeed = Mathf.Abs(a - b);
+            bool anyoneDriving = Mathf.Abs(a) >= lab.ForgeSpeed || Mathf.Abs(b) >= lab.ForgeSpeed;
+            if (closingSpeed < lab.ForgeSpeed && !anyoneDriving) return;
         }
 
         // ---- 动量交换：速度 + 冲刺态整体互换 ----
